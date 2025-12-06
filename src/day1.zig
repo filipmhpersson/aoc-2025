@@ -11,7 +11,7 @@ const Turn = struct {
 };
 
 pub fn parseAndStart(allocator: std.mem.Allocator) !void {
-    const input = try std.fs.cwd().readFileAlloc(allocator, "input/day1.txt", 1024 * 1024 * 1024);
+    const input = try std.fs.cwd().readFileAlloc(allocator, "input/day1", 1024 * 1024 * 1024);
     var rows = std.mem.splitAny(u8, input, "\n");
     var turns: std.ArrayList(Turn) = .empty;
     while (rows.next()) |row| {
