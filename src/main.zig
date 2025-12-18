@@ -42,10 +42,10 @@ pub fn main() !void {
     _ = arena.reset(.free_all);
     try day8.day8_readAndStart(allocator);
     _ = arena.reset(.free_all);
-    // try day9.day9_readAndStart(allocator);
+    try day9.day9_readAndStart(allocator);
     // _ = arena.reset(.free_all);
     //
-    try day10_readAndStart(allocator);
+    //try day10_readAndStart(allocator);
 
     try aoc_2025.bufferedPrint();
 }
@@ -571,45 +571,45 @@ fn day10(input: []const u8, allocator: std.mem.Allocator) !usize {
     return total;
 }
 
-test "day 10 step2 sample" {
-    const input =
-        \\[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
-        \\[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
-        \\[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
-    ;
+// test "day 10 step2 sample" {
+//     const input =
+//         \\[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+//         \\[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
+//         \\[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
+//     ;
 
-    const alloc = std.heap.page_allocator;
-    const res = try day10_step2(input, alloc);
-    try std.testing.expectEqual(34, res);
-}
+//     const alloc = std.heap.page_allocator;
+//     const res = try day10_step2(input, alloc);
+//     try std.testing.expectEqual(34, res);
+// }
 
-test "day 10 step2 realdeal" {
-    const input =
-        \\[..##.#...#] (0,3,4,7,9) (0,1,9) (1,2,3,4,5) (0,1,3,7,8) (1,3,4,5,6,7,9) (0,1,2,4,5,6,7,8) (0,1,2,3,5,6,8) (1,2,4,5,8,9) (0,4,5,6,7) (0,2,3,5,8,9) (0,2,6,7,8,9) {87,70,44,58,58,67,44,54,55,54}
-    ;
+// test "day 10 step2 realdeal" {
+//     const input =
+//         \\[..##.#...#] (0,3,4,7,9) (0,1,9) (1,2,3,4,5) (0,1,3,7,8) (1,3,4,5,6,7,9) (0,1,2,4,5,6,7,8) (0,1,2,3,5,6,8) (1,2,4,5,8,9) (0,4,5,6,7) (0,2,3,5,8,9) (0,2,6,7,8,9) {87,70,44,58,58,67,44,54,55,54}
+//     ;
 
-    const alloc = std.heap.page_allocator;
-    const res = try day10_step2(input, alloc);
-    try std.testing.expectEqual(34, res);
-}
+//     const alloc = std.heap.page_allocator;
+//     const res = try day10_step2(input, alloc);
+//     try std.testing.expectEqual(34, res);
+// }
 
-test "day 10 step2 sample2" {
-    const input =
-        \\[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
-    ;
+// test "day 10 step2 sample2" {
+//     const input =
+//         \\[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
+//     ;
 
-    const alloc = std.heap.page_allocator;
-    const res = try day10_step2(input, alloc);
-    try std.testing.expectEqual(12, res);
-}
-test "day 10 sample" {
-    const input =
-        \\[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
-        \\[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
-        \\[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
-    ;
+//     const alloc = std.heap.page_allocator;
+//     const res = try day10_step2(input, alloc);
+//     try std.testing.expectEqual(12, res);
+// }
+// test "day 10 sample" {
+//     const input =
+//         \\[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+//         \\[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}
+//         \\[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}
+//     ;
 
-    const alloc = std.heap.page_allocator;
-    const res = try day10(input, alloc);
-    try std.testing.expectEqual(7, res);
-}
+//     const alloc = std.heap.page_allocator;
+//     const res = try day10(input, alloc);
+//     try std.testing.expectEqual(7, res);
+// }

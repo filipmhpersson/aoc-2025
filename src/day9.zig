@@ -1,11 +1,11 @@
 const std = @import("std");
 
-const Coordinate = struct { x: usize, y: usize };
+const Coordinate = struct { x: u32, y: u32 };
 
 pub fn day9_readAndStart(allocator: std.mem.Allocator) !void {
     const input = try std.fs.cwd().readFileAlloc(allocator, "input/day9", 1024 * 1024);
     const result = try day9(input, allocator);
-    const result_ste2 = try day9_step2_test2(input, allocator);
+    const result_ste2 = try day9_step2(input, allocator);
     std.debug.print("Day 9 result '{d}' step 2 '{d}'\n", .{ result, result_ste2 });
 }
 
@@ -22,8 +22,8 @@ fn day9(input: []const u8, allocator: std.mem.Allocator) !isize {
         const y = rows.next();
 
         try coordinates.append(allocator, Coordinate{
-            .x = try std.fmt.parseInt(usize, x.?, 10),
-            .y = try std.fmt.parseInt(usize, y.?, 10),
+            .x = try std.fmt.parseInt(u32, x.?, 10),
+            .y = try std.fmt.parseInt(u32, y.?, 10),
         });
     }
 
@@ -59,8 +59,8 @@ fn day9_step2_test2(input: []const u8, allocator: std.mem.Allocator) !isize {
         const y = input_rows.next();
 
         const coordinate = Coordinate{
-            .x = try std.fmt.parseInt(usize, x.?, 10),
-            .y = try std.fmt.parseInt(usize, y.?, 10),
+            .x = try std.fmt.parseInt(u32, x.?, 10),
+            .y = try std.fmt.parseInt(u32, y.?, 10),
         };
 
         try coordinates.append(allocator, coordinate);
@@ -91,15 +91,17 @@ fn findStart(node: *const L, source: Coordinate) ?*const L {
     if (node.*.data.x == source.x and node.*.data.y == source.y) {
         return node;
     }
-    while (node.*.node.next) |nxt| {
-        const l: *L = @fieldParentPtr("node", nxt);
+    var nxt = node.*.node.next;
+    while (nxt) |n| : (nxt = n.next) {
+        const l: *L = @fieldParentPtr("node", n);
         if (l.*.data.x == source.x and l.*.data.y == source.y) {
             return l;
         }
     }
 
-    while (node.*.node.prev) |nxt| {
-        const l: *L = @fieldParentPtr("node", nxt);
+    var back = node.*.node.prev;
+    while (back) |b| : (back = b.prev) {
+        const l: *L = @fieldParentPtr("node", b);
         if (l.*.data.x == source.x and l.*.data.y == source.y) {
             return l;
         }
@@ -108,12 +110,12 @@ fn findStart(node: *const L, source: Coordinate) ?*const L {
     return null;
 }
 
-fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate) bool {
+fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate, list: std.DoublyLinkedList) bool {
     const x_source: isize = @intCast(source.x);
     const y_source: isize = @intCast(source.y);
 
     const x_target: isize = @intCast(target.x);
-    const y_target: isize = @intCast(source.y);
+    const y_target: isize = @intCast(target.y);
 
     const x_walk = x_target - x_source;
     const y_walk = y_target - y_source;
@@ -122,13 +124,16 @@ fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate) bool {
     const expected = getCompassDirection(source, target);
     switch (expected) {
         .N, .S, .W, .E => {
-            const it = node.*.node.next.?;
-            const l: *L = @fieldParentPtr("node", it);
+            var it = node.*.node.next;
+            if (it == null) {
+                it = list.first;
+            }
+            const l: *L = @fieldParentPtr("node", it.?);
             if (is_same(&l.*.data, &target)) return true;
 
-            const back = node.*.node.prev;
+            var back = node.*.node.prev;
             if (back == null) {
-                return false;
+                back = list.last;
             }
             const backCord: *L = @fieldParentPtr("node", back.?);
             return is_same(&backCord.*.data, &target);
@@ -140,17 +145,62 @@ fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate) bool {
     _ = y_walk;
     _ = cpy;
 
-    const dir = getCompassDirection(source, target);
-    // var next: *L = node.*.node.next.?;
-    // const next_l: *L = @fieldParentPtr("node", next);
-    // var back: *L = node.*.node.prev.?;
-    // const back_l: *L = @fieldParentPtr("node", back);
+    var next = node.*.node.next;
+    if (next == null) {
+        next = list.first;
+    }
+    const next_l: *L = @fieldParentPtr("node", next.?);
+    const nextD = getCompassDirection(source, next_l.data);
+    var back = node.*.node.prev;
+    if (back == null) {
+        back = list.last;
+    }
+    //const back_l: *L = @fieldParentPtr("node", back.?);
+    // const backDir = getCompassDirection(source, next);
 
-    switch (dir) {
-        .NE => {},
-        .SE => {},
-        .SW => {},
-        .NW => {},
+    const x_boundingCord = Coordinate{ .x = source.x, .y = target.y };
+    const y_boundingCord = Coordinate{ .x = target.x, .y = source.y };
+
+    if (!walkToTarget(node, source, x_boundingCord, list)) {
+        return false;
+    }
+
+    if (!walkToTarget(node, source, y_boundingCord, list)) {
+        return false;
+    }
+
+    switch (expected) {
+        .NE => {
+            switch (nextD) {
+                .N => {},
+                .E => {},
+                else => return false,
+            }
+        },
+        .SE => {
+            std.debug.print("SE\n", .{});
+            switch (nextD) {
+                .S => {},
+                .E => {},
+                else => return false,
+            }
+        },
+        .SW => {
+            std.debug.print("SE\n", .{});
+            switch (nextD) {
+                .S => {},
+                .W => {},
+                else => return false,
+            }
+        },
+        .NW => {
+            std.debug.print("NEXT D {any}\n", .{nextD});
+            switch (nextD) {
+                .N => {},
+                .W => {},
+                else => return false,
+            }
+        },
         else => {},
     }
 
@@ -209,8 +259,8 @@ fn day9_step2_test(input: []const u8, allocator: std.mem.Allocator) !isize {
         const y = input_rows.next();
 
         const coordinate = Coordinate{
-            .x = try std.fmt.parseInt(usize, x.?, 10),
-            .y = try std.fmt.parseInt(usize, y.?, 10),
+            .x = try std.fmt.parseInt(u32, x.?, 10),
+            .y = try std.fmt.parseInt(u32, y.?, 10),
         };
         var row = try rows.getOrPut(coordinate.y);
         if (!row.found_existing) {
@@ -240,20 +290,21 @@ fn day9_step2_test(input: []const u8, allocator: std.mem.Allocator) !isize {
     var startNode = L{ .data = start };
     list.append(&startNode.node);
     std.debug.print("hello\n", .{});
-    var i: usize = 0;
+    var i: u32 = 0;
     bigloop: while (true) {
         i += 1;
         const next_h = rows.get(start.y).?;
         for (next_h.items) |n| {
+            const n_32: u32 = @intCast(n);
             if (next_h.items.len == 1 or n != start.x) {
                 const next_v = columns.get(n).?;
                 for (next_v.items) |v| {
+                    const v_32: u32 = @intCast(v);
                     if (next_v.items.len == 1 or v != start.y) {
                         const node_h_ptr = try allocator.create(L);
-                        node_h_ptr.*.data = Coordinate{ .x = n, .y = start.y };
-                        std.debug.print("Starting from {any}, found  next {any}\n", .{ start, node_h_ptr.*.data });
+                        node_h_ptr.*.data = Coordinate{ .x = n_32, .y = start.y };
                         list.append(&node_h_ptr.*.node);
-                        start = Coordinate{ .x = n, .y = v };
+                        start = Coordinate{ .x = n_32, .y = v_32 };
                         if (start.x == first.x and start.y == first.y) {
                             std.debug.print("MATCH?? first {any} start{any}\n", .{ first, start });
                             break :bigloop;
@@ -300,8 +351,8 @@ fn day9_step2(input: []const u8, allocator: std.mem.Allocator) !usize {
         const y = input_rows.next();
 
         const coordinate = Coordinate{
-            .x = try std.fmt.parseInt(usize, x.?, 10),
-            .y = try std.fmt.parseInt(usize, y.?, 10),
+            .x = try std.fmt.parseInt(u32, x.?, 10),
+            .y = try std.fmt.parseInt(u32, y.?, 10),
         };
         // var row = try rows.getOrPut(coordinate.y);
         // if (!row.found_existing) {
@@ -729,34 +780,50 @@ test "day 9 compass tests" {
 
 test "day 9 walk tests" {
     const input = [_]struct { source: Coordinate, target: Coordinate, res: bool }{
-        .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
-        .{ .source = Coordinate{ .x = 0, .y = 1 }, .target = Coordinate{ .x = 0, .y = 0 }, .res = true },
-        //        .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 2, .y = 1 }, .res = true },
-        .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 1, .y = 0 }, .res = false },
+        .{ .source = Coordinate{ .x = 7, .y = 1 }, .target = Coordinate{ .x = 11, .y = 1 }, .res = true },
+        .{ .source = Coordinate{ .x = 7, .y = 1 }, .target = Coordinate{ .x = 7, .y = 3 }, .res = true },
+        .{ .source = Coordinate{ .x = 2, .y = 5 }, .target = Coordinate{ .x = 11, .y = 1 }, .res = true },
+        // .{ .source = Coordinate{ .x = 7, .y = 1 }, .target = Coordinate{ .x = 1, .y = 0 }, .res = false },
         // .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 1, .y = 1 }, .res = true },
         // .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
         // .{ .source = Coordinate{ .x = 1, .y = 0 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
         // .{ .source = Coordinate{ .x = 2, .y = 1 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
         // .{ .source = Coordinate{ .x = 1, .y = 1 }, .target = Coordinate{ .x = 0, .y = 0 }, .res = true },
     };
+
+    //         \\7,1
+    //         \\11,1
+    //         \\11,7
+    //         \\9,7
+    //         \\9,5
+    //         \\2,5
+    //         \\2,3
+    //         \\7,3
+    var a: L = .{ .data = Coordinate{ .x = 7, .y = 1 } };
+    var b: L = .{ .data = Coordinate{ .x = 11, .y = 1 } };
+    var c: L = .{ .data = Coordinate{ .x = 11, .y = 7 } };
+    var d: L = .{ .data = Coordinate{ .x = 9, .y = 7 } };
+    var e: L = .{ .data = Coordinate{ .x = 9, .y = 5 } };
+    var f: L = .{ .data = Coordinate{ .x = 2, .y = 5 } };
+    var g: L = .{ .data = Coordinate{ .x = 2, .y = 3 } };
+    var h: L = .{ .data = Coordinate{ .x = 7, .y = 3 } };
     var list: std.DoublyLinkedList = .{};
-    const from = Coordinate{ .x = 0, .y = 0 };
-    const to = Coordinate{ .x = 0, .y = 1 };
 
-    var one: L = .{ .data = from };
-    var two: L = .{ .data = to };
-    var three: L = .{ .data = Coordinate{ .x = 2, .y = 1 } };
-
-    list.append(&one.node);
-    list.append(&two.node);
-    list.append(&three.node);
+    list.append(&a.node);
+    list.append(&b.node);
+    list.append(&c.node);
+    list.append(&d.node);
+    list.append(&e.node);
+    list.append(&f.node);
+    list.append(&g.node);
+    list.append(&h.node);
 
     std.debug.print("LIST {d}\n", .{list.len()});
     for (input) |t| {
         const first = list.first.?;
         const l: *L = @fieldParentPtr("node", first);
         const start = findStart(l, t.source);
-        const res = walkToTarget(start.?, t.source, t.target);
+        const res = walkToTarget(start.?, t.source, t.target, list);
         try std.testing.expectEqual(t.res, res);
     }
 }
