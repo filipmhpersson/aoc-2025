@@ -5,11 +5,11 @@ const Coordinate = struct { x: u32, y: u32 };
 pub fn day9_readAndStart(allocator: std.mem.Allocator) !void {
     const input = try std.fs.cwd().readFileAlloc(allocator, "input/day9", 1024 * 1024);
     const result = try day9(input, allocator);
-    const result_ste2 = try day9_step2(input, allocator);
+    const result_ste2 = try day9_step2_test2(input, allocator);
     std.debug.print("Day 9 result '{d}' step 2 '{d}'\n", .{ result, result_ste2 });
 }
 
-fn day9(input: []const u8, allocator: std.mem.Allocator) !isize {
+fn day9(input: []const u8, allocator: std.mem.Allocator) !usize {
     var rows = std.mem.splitAny(u8, input, ",\n");
     var coordinates: std.ArrayList(Coordinate) = .empty;
 
@@ -27,15 +27,52 @@ fn day9(input: []const u8, allocator: std.mem.Allocator) !isize {
         });
     }
 
-    var biggestBox: isize = 0;
+    var biggestBox: usize = 0;
     for (coordinates.items[0 .. coordinates.items.len - 1], 0..) |source, i| {
         for (i + 1..coordinates.items.len - 1) |j| {
             const target = coordinates.items[j];
-            const height: isize = std.math.cast(isize, source.x).? - std.math.cast(isize, target.x).? + 1;
-            const width: isize = std.math.cast(isize, source.y).? - std.math.cast(isize, target.y).? + 1;
-            const box: isize = @intCast(height * width);
-            if (box > biggestBox) {
-                biggestBox = box;
+
+            const dir = getCompassDirection(source, target);
+            var height: usize = 0;
+            var width: usize = 0;
+            switch (dir) {
+                .SE => {
+                    height = target.y - source.y + 1;
+                    width = target.x - source.x + 1;
+                },
+                .NE => {
+                    width = target.x - source.x + 1;
+                    height = source.y - target.y + 1;
+                },
+                .SW => {
+                    width = source.x - target.x + 1;
+                    height = target.y - source.y + 1;
+                },
+                .NW => {
+                    width = source.x - target.x + 1;
+                    height = source.y - target.y + 1;
+                },
+                .S => {
+                    width = 1;
+                    height = target.y - source.y + 1;
+                },
+                .N => {
+                    width = 1;
+                    height = source.y - target.y + 1;
+                },
+                .E => {
+                    height = 1;
+                    width = target.x - source.x + 1;
+                },
+                .W => {
+                    height = 1;
+                    width = source.x - target.x + 1;
+                },
+            }
+
+            const res = height * width;
+            if (res > biggestBox) {
+                biggestBox = res;
             }
         }
     }
@@ -45,7 +82,7 @@ const L = struct {
     data: Coordinate,
     node: std.DoublyLinkedList.Node = .{},
 };
-fn day9_step2_test2(input: []const u8, allocator: std.mem.Allocator) !isize {
+fn day9_step2_test2(input: []const u8, allocator: std.mem.Allocator) !usize {
     var list: std.DoublyLinkedList = .{};
 
     var input_rows = std.mem.splitAny(u8, input, ",\n");
@@ -70,23 +107,194 @@ fn day9_step2_test2(input: []const u8, allocator: std.mem.Allocator) !isize {
         list.append(&node_ptr.*.node);
     }
 
-    for (coordinates.items[0 .. coordinates.items.len - 1], 0..) |source, i| {
-        for (i + 1..coordinates.items.len - 1) |j| {
-            _ = coordinates.items[j];
-            var it = list.first;
-            var index: u32 = 1;
-            while (it) |node| : (it = node.next) {
-                const l: *L = @fieldParentPtr("node", node);
-                const d = l.*.data;
-                if (d.x == source.x and d.y == source.y) {}
+    var it = list.first;
+    var result: usize = 0;
+    var index: usize = 1;
+    const len = list.len();
+    while (it) |node| : (it = node.next) {
+        if (len == index - 1) {
+            break;
+        }
+        const l: *L = @fieldParentPtr("node", node);
+        const source = l.data;
+        for (index..coordinates.items.len) |j| {
+            const target = coordinates.items[j];
+            const rect = getRect(l.data, target);
 
-                index += 1;
+            if (!polygonPiercesRect(rect, coordinates.items) and rectCornersInsideOrOn(rect, coordinates.items)) {
+                const dir = getCompassDirection(l.data, target);
+                var height: usize = 0;
+                var width: usize = 0;
+                switch (dir) {
+                    .SE => {
+                        height = target.y - source.y + 1;
+                        width = target.x - source.x + 1;
+                    },
+                    .NE => {
+                        width = target.x - source.x + 1;
+                        height = source.y - target.y + 1;
+                    },
+                    .SW => {
+                        width = source.x - target.x + 1;
+                        height = target.y - source.y + 1;
+                    },
+                    .NW => {
+                        width = source.x - target.x + 1;
+                        height = source.y - target.y + 1;
+                    },
+                    .S => {
+                        width = 1;
+                        height = target.y - source.y + 1;
+                    },
+                    .N => {
+                        width = 1;
+                        height = source.y - target.y + 1;
+                    },
+                    .E => {
+                        height = 1;
+                        width = target.x - source.x + 1;
+                    },
+                    .W => {
+                        height = 1;
+                        width = source.x - target.x + 1;
+                    },
+                }
+
+                const res = height * width;
+                if (res > result) {
+                    std.debug.print("FOUND RES {d} in {any} to {any} dir={any}\n", .{ res, l.data, target, dir });
+                    result = res;
+                }
+            }
+        }
+        index += 1;
+    }
+    var current = list.last;
+    while (current) |node| {
+        const next = node.prev;
+        const item: *L = @fieldParentPtr("node", node);
+        allocator.destroy(item);
+        current = next;
+    }
+
+    return result;
+}
+fn rectHasInteriorPointInside(rect: Rect, coords: []const Coordinate) bool {
+    const xmin = rect.topLeft.x;
+    const xmax = rect.topRight.x;
+    const ymin = rect.topLeft.y; // depending on your coordinate orientation
+    const ymax = rect.bottomLeft.y;
+    if (xmin == xmax or ymin == ymax) {
+        // If degenerate rectangles are allowed, decide rules; easiest: treat as false or handle separately.
+        return false;
+    }
+    const PX: i64 = @as(i64, xmin) * 2 + 1;
+    const PY: i64 = @as(i64, ymin) * 2 + 1;
+    return pointInPolyDoubled(PX, PY, coords);
+}
+
+fn pointOnSegmentDoubled(PX: i64, PY: i64, ax: u32, ay: u32, bx: u32, by: u32) bool {
+    const AX: i64 = @as(i64, ax) * 2;
+    const AY: i64 = @as(i64, ay) * 2;
+    const BX: i64 = @as(i64, bx) * 2;
+    const BY: i64 = @as(i64, by) * 2;
+
+    if (AX == BX) { // vertical
+        if (PX != AX) return false;
+        const lo = @min(AY, BY);
+        const hi = @max(AY, BY);
+        return lo <= PY and PY <= hi;
+    } else { // horizontal
+        if (PY != AY) return false;
+        const lo = @min(AX, BX);
+        const hi = @max(AX, BX);
+        return lo <= PX and PX <= hi;
+    }
+}
+fn rectCornersInsideOrOn(rect: Rect, coords: []const Coordinate) bool {
+    const corners = [_]Coordinate{ rect.topLeft, rect.topRight, rect.bottomLeft, rect.bottomRight };
+    for (corners) |c| {
+        const PX: i64 = @as(i64, c.x) * 2;
+        const PY: i64 = @as(i64, c.y) * 2;
+        if (!pointInPolyDoubled(PX, PY, coords)) return false;
+    }
+    return true;
+}
+
+fn pointInPolyDoubled(PX: i64, PY: i64, coords: []const Coordinate) bool {
+    // Boundary check first
+    var i: usize = 0;
+    while (i < coords.len) : (i += 1) {
+        const p = coords[i];
+        const q = coords[(i + 1) % coords.len];
+        if (pointOnSegmentDoubled(PX, PY, p.x, p.y, q.x, q.y)) return true;
+    }
+
+    var crossings: usize = 0;
+    i = 0;
+    while (i < coords.len) : (i += 1) {
+        const p = coords[i];
+        const q = coords[(i + 1) % coords.len];
+
+        // Count only vertical edges for horizontal ray cast
+        if (p.x == q.x) {
+            const ex: i64 = @as(i64, p.x) * 2;
+            var y1: i64 = @as(i64, p.y) * 2;
+            var y2: i64 = @as(i64, q.y) * 2;
+            if (y1 > y2) std.mem.swap(i64, &y1, &y2);
+
+            // Half-open in y: [y1, y2)
+            if (y1 <= PY and PY < y2) {
+                if (ex > PX) crossings += 1;
             }
         }
     }
 
-    return 1;
+    return (crossings & 1) == 1;
 }
+fn rectBounds(rect: Rect) struct { xmin: u32, xmax: u32, ymin: u32, ymax: u32 } {
+    const xmin = @min(rect.topLeft.x, rect.bottomLeft.x);
+    const xmax = @max(rect.topRight.x, rect.bottomRight.x);
+    const ymin = @min(rect.topLeft.y, rect.topRight.y);
+    const ymax = @max(rect.bottomLeft.y, rect.bottomRight.y);
+    return .{ .xmin = xmin, .xmax = xmax, .ymin = ymin, .ymax = ymax };
+}
+fn polygonPiercesRect(rect: Rect, coords: []const Coordinate) bool {
+    const b = rectBounds(rect);
+    const xmin = b.xmin;
+    const xmax = b.xmax;
+    const ymin = b.ymin;
+    const ymax = b.ymax;
+
+    // Degenerate rectangles: if line/point rectangles are allowed, handle separately.
+    if (xmin == xmax or ymin == ymax) return false;
+
+    var i: usize = 0;
+    while (i < coords.len) : (i += 1) {
+        const p = coords[i];
+        const q = coords[(i + 1) % coords.len];
+
+        if (p.x == q.x) { // vertical edge
+            const ex = p.x;
+            const ey1 = @min(p.y, q.y);
+            const ey2 = @max(p.y, q.y);
+
+            if (xmin < ex and ex < xmax) {
+                if (@max(ey1, ymin) < @min(ey2, ymax)) return true;
+            }
+        } else { // horizontal edge
+            const ey = p.y;
+            const ex1 = @min(p.x, q.x);
+            const ex2 = @max(p.x, q.x);
+
+            if (ymin < ey and ey < ymax) {
+                if (@max(ex1, xmin) < @min(ex2, xmax)) return true;
+            }
+        }
+    }
+    return false;
+}
+
 fn findStart(node: *const L, source: Coordinate) ?*const L {
     if (node.*.data.x == source.x and node.*.data.y == source.y) {
         return node;
@@ -111,16 +319,6 @@ fn findStart(node: *const L, source: Coordinate) ?*const L {
 }
 
 fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate, list: std.DoublyLinkedList) bool {
-    const x_source: isize = @intCast(source.x);
-    const y_source: isize = @intCast(source.y);
-
-    const x_target: isize = @intCast(target.x);
-    const y_target: isize = @intCast(target.y);
-
-    const x_walk = x_target - x_source;
-    const y_walk = y_target - y_source;
-    const cpy = node.*;
-
     const expected = getCompassDirection(source, target);
     switch (expected) {
         .N, .S, .W, .E => {
@@ -129,7 +327,9 @@ fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate, list: st
                 it = list.first;
             }
             const l: *L = @fieldParentPtr("node", it.?);
+            // std.debug.print("HERE {any} to {any}\n", .{ l.data, target });
             if (is_same(&l.*.data, &target)) return true;
+            // std.debug.print("HERE ??\n", .{});
 
             var back = node.*.node.prev;
             if (back == null) {
@@ -141,10 +341,6 @@ fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate, list: st
         else => {},
     }
 
-    _ = x_walk;
-    _ = y_walk;
-    _ = cpy;
-
     var next = node.*.node.next;
     if (next == null) {
         next = list.first;
@@ -155,55 +351,434 @@ fn walkToTarget(node: *const L, source: Coordinate, target: Coordinate, list: st
     if (back == null) {
         back = list.last;
     }
-    //const back_l: *L = @fieldParentPtr("node", back.?);
-    // const backDir = getCompassDirection(source, next);
-
-    const x_boundingCord = Coordinate{ .x = source.x, .y = target.y };
-    const y_boundingCord = Coordinate{ .x = target.x, .y = source.y };
-
-    if (!walkToTarget(node, source, x_boundingCord, list)) {
-        return false;
-    }
-
-    if (!walkToTarget(node, source, y_boundingCord, list)) {
-        return false;
-    }
 
     switch (expected) {
         .NE => {
             switch (nextD) {
-                .N => {},
-                .E => {},
+                .N => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.N,
+                        compassDirection.E,
+                        list,
+                        walkForward,
+                    );
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.E,
+                        compassDirection.N,
+                        list,
+                        walkBackward,
+                    );
+                },
+                .E => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.E,
+                        compassDirection.N,
+                        list,
+                        walkForward,
+                    );
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.N,
+                        compassDirection.E,
+                        list,
+                        walkBackward,
+                    );
+                },
                 else => return false,
             }
         },
         .SE => {
-            std.debug.print("SE\n", .{});
             switch (nextD) {
-                .S => {},
-                .E => {},
+                .S => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.S,
+                        compassDirection.E,
+                        list,
+                        walkForward,
+                    );
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.E,
+                        compassDirection.S,
+                        list,
+                        walkBackward,
+                    );
+                },
+                .E => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.E,
+                        compassDirection.S,
+                        list,
+                        walkForward,
+                    );
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.S,
+                        compassDirection.E,
+                        list,
+                        walkBackward,
+                    );
+                },
                 else => return false,
             }
         },
         .SW => {
-            std.debug.print("SE\n", .{});
             switch (nextD) {
-                .S => {},
-                .W => {},
+                .S => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.S,
+                        compassDirection.W,
+                        list,
+                        walkForward,
+                    );
+                    // std.debug.print("CAN WALK {any} SW S\n", .{canWalk});
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    const r = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.W,
+                        compassDirection.S,
+                        list,
+                        walkBackward,
+                    );
+
+                    // std.debug.print("CAN WALK {any} from {any} TO {any} DIR W\n", .{ node.data, target, r });
+                    return r;
+                },
+                .W => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.W,
+                        compassDirection.S,
+                        list,
+                        walkForward,
+                    );
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.S,
+                        compassDirection.W,
+                        list,
+                        walkBackward,
+                    );
+                },
                 else => return false,
             }
         },
         .NW => {
-            std.debug.print("NEXT D {any}\n", .{nextD});
             switch (nextD) {
-                .N => {},
-                .W => {},
+                .N => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.N,
+                        compassDirection.W,
+                        list,
+                        walkForward,
+                    );
+                    // std.debug.print("CAN WALK {any} NW N\n", .{canWalk});
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.W,
+                        compassDirection.N,
+                        list,
+                        walkBackward,
+                    );
+                },
+
+                .W => {
+                    const canWalk = canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.W,
+                        compassDirection.N,
+                        list,
+                        walkForward,
+                    );
+                    // std.debug.print("CAN WALK {any} NW W\n", .{canWalk});
+                    if (!canWalk) {
+                        return false;
+                    }
+
+                    return canWalkToTarget(
+                        node,
+                        target,
+                        compassDirection.N,
+                        compassDirection.W,
+                        list,
+                        walkBackward,
+                    );
+                },
                 else => return false,
             }
         },
         else => {},
     }
+    unreachable;
+}
 
+fn walkBackward(node: *const L, list: std.DoublyLinkedList) *L {
+    const next = node.node.prev;
+    if (next != null) {
+        return @fieldParentPtr("node", next.?);
+    } else {
+        return @fieldParentPtr("node", list.last.?);
+    }
+}
+fn walkForward(node: *const L, list: std.DoublyLinkedList) *L {
+    const next = node.node.next;
+    if (next != null) {
+        return @fieldParentPtr("node", next.?);
+    } else {
+        return @fieldParentPtr("node", list.first.?);
+    }
+}
+
+const Rect = struct { topRight: Coordinate, topLeft: Coordinate, bottomRight: Coordinate, bottomLeft: Coordinate };
+fn getRect(from: Coordinate, to: Coordinate) Rect {
+    const dir = getCompassDirection(from, to);
+    switch (dir) {
+        .S => {
+            return Rect{
+                .topLeft = from,
+                .topRight = from,
+                .bottomLeft = to,
+                .bottomRight = to,
+            };
+        },
+        .E => {
+            return Rect{
+                .topLeft = from,
+                .topRight = to,
+                .bottomLeft = from,
+                .bottomRight = to,
+            };
+        },
+        .W => {
+            return Rect{
+                .topLeft = to,
+                .topRight = from,
+                .bottomLeft = to,
+                .bottomRight = from,
+            };
+        },
+        .N => {
+            return Rect{
+                .topLeft = to,
+                .topRight = to,
+                .bottomLeft = from,
+                .bottomRight = from,
+            };
+        },
+        .NE => {
+            return Rect{
+                .topLeft = Coordinate{ .y = to.y, .x = from.x },
+                .topRight = to,
+                .bottomLeft = from,
+                .bottomRight = Coordinate{ .x = to.x, .y = from.y },
+            };
+        },
+        .SE => {
+            return Rect{
+                .topLeft = from,
+                .topRight = Coordinate{ .y = from.y, .x = to.x },
+                .bottomLeft = Coordinate{ .y = to.y, .x = from.x },
+                .bottomRight = to,
+            };
+        },
+        .SW => {
+            return Rect{
+                .topLeft = Coordinate{ .y = from.y, .x = to.x },
+                .topRight = from,
+                .bottomLeft = to,
+                .bottomRight = Coordinate{ .y = to.y, .x = from.x },
+            };
+        },
+        .NW => {
+            return Rect{
+                .topLeft = to,
+                .topRight = Coordinate{ .x = from.x, .y = to.y },
+                .bottomLeft = Coordinate{ .x = to.x, .y = from.y },
+                .bottomRight = from,
+            };
+        },
+    }
+}
+
+fn canWalkToTarget(
+    node: *const L,
+    target: Coordinate,
+    dir: compassDirection,
+    sndDir: compassDirection,
+    list: std.DoublyLinkedList,
+    comptime f: fn (*const L, std.DoublyLinkedList) *L,
+) bool {
+    var boundingValidated = false;
+    var prevCoord = node.data;
+
+    const source = node.data;
+    const rect = getRect(source, target);
+    var next = f(node, list);
+    while (true) {
+        const l: *L = next;
+
+        if (is_same(&l.data, &target)) {
+            if (!boundingValidated) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+        if (l.data.x > rect.topLeft.x and l.data.x < rect.topRight.x and l.data.y > rect.topRight.y and l.data.y < rect.bottomLeft.y) {
+            return false;
+        }
+
+        switch (dir) {
+            // # # # X # T
+            // # # # # # #
+            // # # # S # Y
+            .N => {
+                const compareCord = Coordinate{
+                    .y = target.y,
+                    .x = source.x,
+                };
+
+                if (is_same(&l.data, &compareCord)) {
+                    boundingValidated = true;
+                }
+
+                // std.debug.print("WALKING FROM {any} to {any}\n", .{ source, compareCord });
+                switch (sndDir) {
+                    .W => {
+                        // # # # X # T
+                        // # # # # # #
+                        // # # # S # Y
+                        //
+                        if (l.data.y == target.y and l.data.x >= source.x) {
+                            // std.debug.print("FOUND DIRECT MATCH\n", .{});
+                            boundingValidated = true;
+                        } else if (l.data.x >= source.x and l.data.y > target.y and prevCoord.y < target.y) {
+                            // std.debug.print("walked past\n", .{});
+                            boundingValidated = true;
+                        } else if (l.data.x >= source.x and l.data.y < target.y and prevCoord.y > target.y) {
+                            // std.debug.print("reverse walked past {any} matches x {d} y {d}\n", .{ l.data, source.x, target.y });
+                            boundingValidated = true;
+                        }
+                    },
+                    .E => {
+                        if ((l.data.y == target.y and l.data.x <= source.x) or
+                            (l.data.x <= source.x and l.data.y > target.y and prevCoord.y < target.y) or
+                            (l.data.x <= source.x and l.data.y < target.y and prevCoord.y > target.y))
+                            boundingValidated = true;
+                    },
+                    else => unreachable,
+                }
+            },
+
+            .S => {
+                const compareCord = Coordinate{ .y = target.y, .x = source.x };
+                if (is_same(&l.data, &compareCord)) {
+                    boundingValidated = true;
+                }
+
+                switch (sndDir) {
+                    .W => {
+                        if ((l.data.y == target.y and l.data.x <= source.x) or
+                            (l.data.x >= source.x and l.data.y > target.y and prevCoord.y < target.y) or
+                            (l.data.x >= source.x and l.data.y < target.y and prevCoord.y > target.y))
+                            boundingValidated = true;
+                    },
+                    .E => {
+                        if ((l.data.y == target.y and l.data.x <= source.x) or
+                            (l.data.x <= source.x and l.data.y > target.y and prevCoord.y < target.y) or
+                            (l.data.x <= source.x and l.data.y < target.y and prevCoord.y > target.y))
+                            boundingValidated = true;
+                    },
+                    else => unreachable,
+                }
+            },
+            // # # # S # Y
+            // # # # # # #
+            // # # # X # T
+            .E, .W => {
+                const compareCord = Coordinate{ .y = source.y, .x = target.x };
+                if (is_same(&l.data, &compareCord)) {
+                    boundingValidated = true;
+                }
+
+                // std.debug.print("{any} WALKING FROM source {any} cur {any} to {any}\n", .{ dir, source, l.data, compareCord });
+                switch (sndDir) {
+                    .N => {
+                        if (l.data.x == target.x and l.data.y >= source.y) {
+                            // std.debug.print("FOUND DIRECT MATCH\n", .{});
+                            boundingValidated = true;
+                        } else if (l.data.y >= source.y and l.data.x > target.x and prevCoord.x < target.x) {
+                            // std.debug.print("FOUND overarching MATCH\n", .{});
+                            boundingValidated = true;
+                        } else if (l.data.y >= source.y and l.data.x < target.x and prevCoord.x > target.x) {
+                            // std.debug.print("FOUND reverse MATCH\n", .{});
+                            boundingValidated = true;
+                        }
+                    },
+                    .S => {
+                        if ((l.data.x == target.x and l.data.y <= source.y) or
+                            (l.data.y <= source.y and l.data.x > target.x and prevCoord.x < target.x) or
+                            (l.data.y <= source.y and l.data.x < target.x and prevCoord.x > target.x))
+                            boundingValidated = true;
+                    },
+                    else => unreachable,
+                }
+            },
+            else => unreachable,
+        }
+
+        prevCoord = l.data;
+        next = f(l, list);
+    }
     return false;
 }
 
@@ -243,219 +818,6 @@ fn getCompassDirection(source: Coordinate, target: Coordinate) compassDirection 
     return dir;
 }
 
-fn day9_step2_test(input: []const u8, allocator: std.mem.Allocator) !isize {
-    var input_rows = std.mem.splitAny(u8, input, ",\n");
-    var coordinates: std.ArrayList(Coordinate) = .empty;
-    defer coordinates.deinit(allocator);
-    var columns: std.AutoHashMap(usize, std.ArrayList(usize)) = .init(allocator);
-    var rows: std.AutoHashMap(usize, std.ArrayList(usize)) = .init(allocator);
-    var len: usize = 0;
-    var hgt: usize = 0;
-    while (true) {
-        const x = input_rows.next();
-        if (x == null or x.?.len == 0) {
-            break;
-        }
-        const y = input_rows.next();
-
-        const coordinate = Coordinate{
-            .x = try std.fmt.parseInt(u32, x.?, 10),
-            .y = try std.fmt.parseInt(u32, y.?, 10),
-        };
-        var row = try rows.getOrPut(coordinate.y);
-        if (!row.found_existing) {
-            row.value_ptr.* = .empty;
-        }
-        try row.value_ptr.append(allocator, coordinate.x);
-
-        var column = try columns.getOrPut(coordinate.x);
-        if (!column.found_existing) {
-            column.value_ptr.* = .empty;
-        }
-        try column.value_ptr.append(allocator, coordinate.y);
-
-        try coordinates.append(allocator, coordinate);
-        if (coordinate.x + 1 > hgt) {
-            hgt = coordinate.x + 1;
-        }
-        if (coordinate.y + 1 > len) {
-            len = coordinate.y + 1;
-        }
-    }
-
-    var list: std.DoublyLinkedList = .{};
-
-    const first = coordinates.items[0];
-    var start = coordinates.items[0];
-    var startNode = L{ .data = start };
-    list.append(&startNode.node);
-    std.debug.print("hello\n", .{});
-    var i: u32 = 0;
-    bigloop: while (true) {
-        i += 1;
-        const next_h = rows.get(start.y).?;
-        for (next_h.items) |n| {
-            const n_32: u32 = @intCast(n);
-            if (next_h.items.len == 1 or n != start.x) {
-                const next_v = columns.get(n).?;
-                for (next_v.items) |v| {
-                    const v_32: u32 = @intCast(v);
-                    if (next_v.items.len == 1 or v != start.y) {
-                        const node_h_ptr = try allocator.create(L);
-                        node_h_ptr.*.data = Coordinate{ .x = n_32, .y = start.y };
-                        list.append(&node_h_ptr.*.node);
-                        start = Coordinate{ .x = n_32, .y = v_32 };
-                        if (start.x == first.x and start.y == first.y) {
-                            std.debug.print("MATCH?? first {any} start{any}\n", .{ first, start });
-                            break :bigloop;
-                        }
-
-                        const node_v_ptr = try allocator.create(L);
-                        node_v_ptr.*.data = start;
-
-                        list.append(&node_v_ptr.*.node);
-                        break;
-                    }
-                }
-            }
-        }
-    }
-
-    var it = list.first;
-    var index: u32 = 1;
-    while (it) |node| : (it = node.next) {
-        const l: *L = @fieldParentPtr("node", node);
-        std.debug.print("FROM NODE {any}\n", .{l.data});
-        index += 1;
-        if (index > 15) {
-            break;
-        }
-    }
-
-    return 1;
-}
-
-fn day9_step2(input: []const u8, allocator: std.mem.Allocator) !usize {
-    var input_rows = std.mem.splitAny(u8, input, ",\n");
-    var coordinates: std.ArrayList(Coordinate) = .empty;
-    defer coordinates.deinit(allocator);
-    // var columns: std.AutoHashMap(usize, std.ArrayList(usize)) = .init(allocator);
-    // var rows: std.AutoHashMap(usize, std.ArrayList(usize)) = .init(allocator);
-    var len: usize = 0;
-    var hgt: usize = 0;
-    while (true) {
-        const x = input_rows.next();
-        if (x == null or x.?.len == 0) {
-            break;
-        }
-        const y = input_rows.next();
-
-        const coordinate = Coordinate{
-            .x = try std.fmt.parseInt(u32, x.?, 10),
-            .y = try std.fmt.parseInt(u32, y.?, 10),
-        };
-        // var row = try rows.getOrPut(coordinate.y);
-        // if (!row.found_existing) {
-        //     row.value_ptr.* = .empty;
-        // }
-        // try row.value_ptr.append(allocator, coordinate.y);
-        //
-        // var column = try columns.getOrPut(coordinate.x);
-        // if (!column.found_existing) {
-        //     column.value_ptr.* = .empty;
-        // }
-        // try column.value_ptr.append(allocator, coordinate.x);
-
-        try coordinates.append(allocator, coordinate);
-        if (coordinate.x + 1 > hgt) {
-            hgt = coordinate.x + 1;
-        }
-        if (coordinate.y + 1 > len) {
-            len = coordinate.y + 1;
-        }
-    }
-
-    const arr: [][]u8 = try allocator.alloc([]u8, len);
-
-    std.debug.print("INIT dots", .{});
-    for (0..len) |i| {
-        arr[i] = try allocator.alloc(u8, hgt);
-        for (0..hgt) |j| {
-            arr[i][j] = '.';
-        }
-    }
-
-    std.debug.print("INIT X", .{});
-    for (coordinates.items) |coord| {
-        arr[coord.y][coord.x] = 'X';
-    }
-
-    std.debug.print("INIT # rows", .{});
-    for (arr, 0..) |row, i| {
-        var start: ?usize = null;
-        for (row, 0..) |c, j| {
-            if (c == 'X' or c == '#') {
-                if (start) |s| {
-                    for (s + 1..j) |n| {
-                        arr[i][n] = '#';
-                    }
-                } else {
-                    start = j;
-                }
-            }
-        }
-    }
-
-    for (0..arr[0].len) |i| {
-        var start: ?usize = null;
-        for (0..arr.len) |j| {
-            const c = arr[j][i];
-            if (c == 'X' or c == '#') {
-                if (start) |s| {
-                    for (s + 1..j) |n| {
-                        arr[n][i] = '#';
-                    }
-                } else {
-                    start = j;
-                }
-            }
-        }
-    }
-
-    var biggestBox: usize = 0;
-    for (coordinates.items[0 .. coordinates.items.len - 1], 0..) |source, i| {
-        for (i + 1..coordinates.items.len - 1) |j| {
-            const target = coordinates.items[j];
-            const box = walkToAndFrom(source, target, arr);
-            if (box > biggestBox) {
-                biggestBox = box;
-            }
-        }
-    }
-
-    // var highest: usize = 0;
-    // for (coordinates.items) |i| {
-    //     var start = Direction.right;
-    //     while (true) {
-    //         std.debug.print("EVALUATING cord {any} dir {any}\n", .{ i, start });
-    //         const res = fullRect(i, arr, start);
-    //         if (res > highest) {
-    //             std.debug.print("SETTING HIGHEST cord {any} dir {any} point {d}\n", .{ i, start, res });
-    //
-    //             highest = res;
-    //         }
-    //         start = nextDirection(start) orelse break;
-    //     }
-    // }
-
-    std.debug.print("CLEAR\n ", .{});
-    for (arr) |a| {
-        defer allocator.free(a);
-    }
-    defer allocator.free(arr);
-
-    return biggestBox;
-}
 const compassDirection = enum {
     NW,
     N,
@@ -466,177 +828,6 @@ const compassDirection = enum {
     SW,
     W,
 };
-
-fn walkToAndFrom(source: Coordinate, target: Coordinate, rows: [][]u8) usize {
-    const direction = enum {
-        NW,
-        NE,
-        SE,
-        SW,
-    };
-    var dir: direction = undefined;
-    if (source.x < target.x) {
-        if (source.y < target.y) {
-            dir = direction.SE;
-        } else {
-            dir = direction.SW;
-        }
-    } else {
-        if (source.y < target.y) {
-            dir = direction.NE;
-        } else {
-            dir = direction.NW;
-        }
-    }
-    // std.debug.print("INVESTIGATING s {any} t {any} dir {any}\n", .{ source, target, dir });
-
-    switch (dir) {
-        .SE => {
-            const validRight = validPath(source, target, rows, .right);
-            const validBot = validPath(source, target, rows, .bottom);
-            // std.debug.print("VALID RIGHT {any} VALID BOT {any}\n", .{ validRight, validBot });
-            if (!validBot or !validRight) {
-                return 0;
-            }
-            const validDown = validPath(Coordinate{ .y = source.y, .x = target.x }, target, rows, .bottom);
-            const valid2 = validPath(Coordinate{ .y = target.y, .x = source.x }, target, rows, .right);
-            // std.debug.print("VALID EXTRA {any}\n", .{validDown});
-            if (!validDown or !valid2) {
-                return 0;
-            }
-        },
-        .SW => {
-            const validLeft = validPath(source, target, rows, .left);
-            const validBot = validPath(source, target, rows, .bottom);
-            if (!validBot or !validLeft) {
-                return 0;
-            }
-            const validDown = validPath(Coordinate{ .y = source.y, .x = target.x }, target, rows, .bottom);
-            const valid2 = validPath(Coordinate{ .y = target.y, .x = source.x }, target, rows, .left);
-            if (!validDown or !valid2) {
-                return 0;
-            }
-        },
-        .NW => {
-            const validLeft = validPath(source, target, rows, .left);
-            const validTop = validPath(source, target, rows, .top);
-            if (!validTop or !validLeft) {
-                return 0;
-            }
-            const validDown = validPath(Coordinate{ .y = source.y, .x = target.x }, target, rows, .top);
-            const valid2 = validPath(Coordinate{ .y = target.y, .x = source.x }, target, rows, .left);
-            if (!validDown or !valid2) {
-                return 0;
-            }
-        },
-
-        .NE => {
-            const validRight = validPath(source, target, rows, .right);
-            const validBot = validPath(source, target, rows, .top);
-            if (!validBot or !validRight) {
-                return 0;
-            }
-            const vald1 = validPath(Coordinate{ .y = source.y, .x = target.x }, target, rows, .top);
-            const valid2 = validPath(Coordinate{ .y = target.y, .x = source.x }, target, rows, .right);
-            if (!vald1 or !valid2) {
-                return 0;
-            }
-        },
-    }
-
-    var height: usize = 0;
-    var width: usize = 0;
-    switch (dir) {
-        .SE => {
-            height = target.x - source.x + 1;
-            width = target.y - source.y + 1;
-        },
-        .NE => {
-            width = target.y - source.y + 1;
-            height = source.x - target.x + 1;
-        },
-        .SW => {
-            width = source.y - target.y + 1;
-            height = target.x - source.x + 1;
-        },
-        .NW => {
-            width = source.y - target.y + 1;
-            height = source.x - target.x + 1;
-        },
-    }
-    const res: usize = @intCast(height * width);
-    // std.debug.print("DOING MATH s {any} t {any} h {d} w {d} r {d}\n", .{ source, target, height, width, res });
-    return res;
-}
-
-fn validPath(source: Coordinate, target: Coordinate, rows: [][]u8, dir: Direction) bool {
-    var next = source;
-
-    while (true) {
-        switch (dir) {
-            .left, .right => {
-                if (target.y == next.y) {
-                    return true;
-                }
-                if (dir == .right) {
-                    next.y = next.y + 1;
-                    if (next.y > target.y) {
-                        return false;
-                    }
-                } else {
-                    next.y = next.y - 1;
-                    if (next.y < target.y) {
-                        return false;
-                    }
-                }
-            },
-            .top, .bottom => {
-                if (target.x == next.x) {
-                    return true;
-                }
-                if (dir == .top) {
-                    next.x = next.x - 1;
-                    if (next.x < target.x) {
-                        return false;
-                    }
-                } else {
-                    next.x = next.x + 1;
-                    if (next.x > target.x) {
-                        return false;
-                    }
-                }
-            },
-        }
-        if (rows[next.y][next.x] != 'X' and rows[next.y][next.x] != '#') {
-            return false;
-        }
-    }
-}
-
-fn fullRect(cur: Coordinate, rows: [][]u8, dir: Direction) usize {
-    var d = dir;
-
-    var cord = cur;
-    std.debug.print("{any}\n", .{cord});
-    const first = walkRect(&cord, rows, d);
-    d = nextDir(d);
-    var curd = cur;
-    std.debug.print("CURD {any}\n", .{curd});
-    const second = walkRect(&curd, rows, d);
-
-    d = nextDir(d);
-    const third = walkRect(&curd, rows, dir);
-
-    d = nextDir(d);
-    std.debug.print("{any}\n", .{cord});
-    const fourth = walkRect(&cord, rows, d);
-    std.debug.print("{d} {d} {d} {d}\n", .{ first, second, third, fourth });
-    if (first == third and second == fourth) {
-        return (@min(first, third)) * (@min(second, fourth));
-    } else {
-        return 0;
-    }
-}
 
 fn nextDir(dir: Direction) Direction {
     return switch (dir) {
@@ -744,21 +935,21 @@ test "day 9 sample" {
     try std.testing.expectEqual(50, result);
 }
 
-// test "day 9 sample step2" {
-//     const input =
-//         \\7,1
-//         \\11,1
-//         \\11,7
-//         \\9,7
-//         \\9,5
-//         \\2,5
-//         \\2,3
-//         \\7,3
-//     ;
-//
-//     const result = try (day9_step2_test2(input, std.testing.allocator));
-//     try std.testing.expectEqual(24, result);
-// }
+test "day 9 sample step2" {
+    const input =
+        \\7,1
+        \\11,1
+        \\11,7
+        \\9,7
+        \\9,5
+        \\2,5
+        \\2,3
+        \\7,3
+    ;
+
+    const result = try (day9_step2_test2(input, std.testing.allocator));
+    try std.testing.expectEqual(24, result);
+}
 
 test "day 9 compass tests" {
     const input = [_]struct { source: Coordinate, target: Coordinate, expected: compassDirection }{
@@ -770,6 +961,7 @@ test "day 9 compass tests" {
         .{ .source = Coordinate{ .x = 1, .y = 0 }, .target = Coordinate{ .x = 0, .y = 1 }, .expected = compassDirection.SW },
         .{ .source = Coordinate{ .x = 2, .y = 1 }, .target = Coordinate{ .x = 0, .y = 1 }, .expected = compassDirection.W },
         .{ .source = Coordinate{ .x = 1, .y = 1 }, .target = Coordinate{ .x = 0, .y = 0 }, .expected = compassDirection.NW },
+        .{ .source = Coordinate{ .x = 2, .y = 5 }, .target = Coordinate{ .x = 7, .y = 3 }, .expected = compassDirection.NE },
     };
 
     for (input) |t| {
@@ -780,25 +972,74 @@ test "day 9 compass tests" {
 
 test "day 9 walk tests" {
     const input = [_]struct { source: Coordinate, target: Coordinate, res: bool }{
-        .{ .source = Coordinate{ .x = 7, .y = 1 }, .target = Coordinate{ .x = 11, .y = 1 }, .res = true },
+        .{
+            .source = Coordinate{ .x = 2, .y = 5 },
+            .target = Coordinate{ .x = 7, .y = 3 },
+            .res = true,
+        },
+
+        .{
+            .source = Coordinate{ .x = 7, .y = 1 },
+            .target = Coordinate{ .x = 11, .y = 1 },
+            .res = true,
+        },
+
+        // Adjacent on same column (X=7)
         .{ .source = Coordinate{ .x = 7, .y = 1 }, .target = Coordinate{ .x = 7, .y = 3 }, .res = true },
-        .{ .source = Coordinate{ .x = 2, .y = 5 }, .target = Coordinate{ .x = 11, .y = 1 }, .res = true },
-        // .{ .source = Coordinate{ .x = 7, .y = 1 }, .target = Coordinate{ .x = 1, .y = 0 }, .res = false },
-        // .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 1, .y = 1 }, .res = true },
-        // .{ .source = Coordinate{ .x = 0, .y = 0 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
-        // .{ .source = Coordinate{ .x = 1, .y = 0 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
-        // .{ .source = Coordinate{ .x = 2, .y = 1 }, .target = Coordinate{ .x = 0, .y = 1 }, .res = true },
-        // .{ .source = Coordinate{ .x = 1, .y = 1 }, .target = Coordinate{ .x = 0, .y = 0 }, .res = true },
+
+        // (9,5) to (2,3): same rectangle as (2,5)→(7,3) but different corners - Area=24
+        .{ .source = Coordinate{ .x = 9, .y = 5 }, .target = Coordinate{ .x = 2, .y = 3 }, .res = true },
+        .{ .source = Coordinate{ .x = 2, .y = 3 }, .target = Coordinate{ .x = 9, .y = 5 }, .res = true },
+
+        // Adjacent on same column (X=9)
+        .{ .source = Coordinate{ .x = 9, .y = 7 }, .target = Coordinate{ .x = 9, .y = 5 }, .res = true },
+
+        // (2,3) to (9,5): valid rectangle
+        .{ .source = Coordinate{ .x = 2, .y = 3 }, .target = Coordinate{ .x = 9, .y = 5 }, .res = true },
+
+        .{
+            .source = Coordinate{ .x = 2, .y = 5 },
+            .target = Coordinate{ .x = 11, .y = 1 },
+            .res = false,
+        },
+
+        .{
+            .source = Coordinate{ .x = 2, .y = 5 },
+            .target = Coordinate{ .x = 9, .y = 7 },
+            .res = false,
+        },
+
+        .{
+            .source = Coordinate{ .x = 7, .y = 1 },
+            .target = Coordinate{ .x = 11, .y = 7 },
+            .res = false,
+        },
+
+        .{
+            .source = Coordinate{ .x = 2, .y = 3 },
+            .target = Coordinate{ .x = 11, .y = 7 },
+            .res = false,
+        },
+
+        .{
+            .source = Coordinate{ .x = 11, .y = 1 },
+            .target = Coordinate{ .x = 2, .y = 5 },
+            .res = false,
+        },
+
+        .{
+            .source = Coordinate{ .x = 11, .y = 7 },
+            .target = Coordinate{ .x = 7, .y = 3 },
+            .res = false,
+        },
+        .{
+            .source = Coordinate{ .x = 7, .y = 3 },
+            .target = Coordinate{ .x = 11, .y = 7 },
+            .res = false,
+        },
     };
 
-    //         \\7,1
-    //         \\11,1
-    //         \\11,7
-    //         \\9,7
-    //         \\9,5
-    //         \\2,5
-    //         \\2,3
-    //         \\7,3
+    var h: L = .{ .data = Coordinate{ .x = 7, .y = 3 } };
     var a: L = .{ .data = Coordinate{ .x = 7, .y = 1 } };
     var b: L = .{ .data = Coordinate{ .x = 11, .y = 1 } };
     var c: L = .{ .data = Coordinate{ .x = 11, .y = 7 } };
@@ -806,7 +1047,6 @@ test "day 9 walk tests" {
     var e: L = .{ .data = Coordinate{ .x = 9, .y = 5 } };
     var f: L = .{ .data = Coordinate{ .x = 2, .y = 5 } };
     var g: L = .{ .data = Coordinate{ .x = 2, .y = 3 } };
-    var h: L = .{ .data = Coordinate{ .x = 7, .y = 3 } };
     var list: std.DoublyLinkedList = .{};
 
     list.append(&a.node);
@@ -823,6 +1063,123 @@ test "day 9 walk tests" {
         const first = list.first.?;
         const l: *L = @fieldParentPtr("node", first);
         const start = findStart(l, t.source);
+        const res = walkToTarget(start.?, t.source, t.target, list);
+        try std.testing.expectEqual(t.res, res);
+    }
+}
+
+test "day 9 special walk tests" {
+    // Polygon: 7,1 → 11,1 → 11,7 → 9,7 → 9,5 → 2,5 → 2,3 → 7,3 → (back to 7,1)
+    //
+    // Visual (X is horizontal, Y is vertical, origin top-left):
+    //   Y=1:  .......#...#..   (7,1) and (11,1)
+    //   Y=3:  ..#....#......   (2,3) and (7,3)
+    //   Y=5:  ..#......#....   (2,5) and (9,5)
+    //   Y=7:  .........#.#..   (9,7) and (11,7)
+    //
+    const input = [_]struct { source: Coordinate, target: Coordinate, res: bool }{
+        // === VALID CASES ===
+        // (2,5) to (7,3): Area=24, the answer for part 2 sample
+        // Forward: 2,5 → 2,3 → 7,3 ✓ stays in x:[2,7], y:[3,5]
+        // Backward: 2,5 → 9,5 → ... but we only need one valid path
+        // j
+
+        .{
+            .source = Coordinate{ .x = 1, .y = 3 },
+            .target = Coordinate{ .x = 5, .y = 5 },
+            .res = false,
+        },
+
+        .{
+            .source = Coordinate{ .x = 5, .y = 5 },
+            .target = Coordinate{ .x = 1, .y = 3 },
+            .res = false,
+        },
+        .{
+            .source = Coordinate{ .x = 1, .y = 3 },
+            .target = Coordinate{ .x = 5, .y = 2 },
+            .res = false,
+        },
+    };
+
+    //         \\7,1
+    //         \\11,1
+    //         \\11,7
+    //         \\9,7
+    //         \\9,5
+    //         \\2,5
+    //         \\2,3
+    //         \\7,3
+    var a: L = .{ .data = Coordinate{ .x = 1, .y = 3 } };
+    var b: L = .{ .data = Coordinate{ .x = 2, .y = 3 } };
+    var c: L = .{ .data = Coordinate{ .x = 2, .y = 4 } };
+    var d: L = .{ .data = Coordinate{ .x = 3, .y = 4 } };
+    var e: L = .{ .data = Coordinate{ .x = 3, .y = 2 } };
+    var f: L = .{ .data = Coordinate{ .x = 5, .y = 2 } };
+    var g: L = .{ .data = Coordinate{ .x = 5, .y = 5 } };
+    var h: L = .{ .data = Coordinate{ .x = 1, .y = 5 } };
+    var list: std.DoublyLinkedList = .{};
+
+    list.append(&a.node);
+    list.append(&b.node);
+    list.append(&c.node);
+    list.append(&d.node);
+    list.append(&e.node);
+    list.append(&f.node);
+    list.append(&g.node);
+    list.append(&h.node);
+
+    std.debug.print("LIST {d}\n", .{list.len()});
+    for (input) |t| {
+        const first = list.first.?;
+        const l: *L = @fieldParentPtr("node", first);
+        const start = findStart(l, t.source);
+        const res = walkToTarget(start.?, t.source, t.target, list);
+        try std.testing.expectEqual(t.res, res);
+    }
+}
+
+test "day 9 special walk tests two" {
+    // Polygon: 7,1 → 11,1 → 11,7 → 9,7 → 9,5 → 2,5 → 2,3 → 7,3 → (back to 7,1)
+    //
+    // Visual (X is horizontal, Y is vertical, origin top-left):
+    //   Y=1:  .......#...#..   (7,1) and (11,1)
+    //   Y=3:  ..#....#......   (2,3) and (7,3)
+    //   Y=5:  ..#......#....   (2,5) and (9,5)
+    //   Y=7:  .........#.#..   (9,7) and (11,7)
+    //
+    const input = [_]struct { source: Coordinate, target: Coordinate, res: bool }{
+        .{
+            .source = Coordinate{ .x = 1, .y = 5 },
+            .target = Coordinate{ .x = 5, .y = 2 },
+            .res = false,
+        },
+    };
+    var a: L = .{ .data = Coordinate{ .x = 1, .y = 3 } };
+    var b: L = .{ .data = Coordinate{ .x = 2, .y = 3 } };
+    var c: L = .{ .data = Coordinate{ .x = 2, .y = 4 } };
+    var d: L = .{ .data = Coordinate{ .x = 3, .y = 4 } };
+    var e: L = .{ .data = Coordinate{ .x = 3, .y = 2 } };
+    var f: L = .{ .data = Coordinate{ .x = 5, .y = 2 } };
+    var g: L = .{ .data = Coordinate{ .x = 5, .y = 5 } };
+    var h: L = .{ .data = Coordinate{ .x = 1, .y = 5 } };
+    var list: std.DoublyLinkedList = .{};
+
+    list.append(&a.node);
+    list.append(&b.node);
+    list.append(&c.node);
+    list.append(&d.node);
+    list.append(&e.node);
+    list.append(&f.node);
+    list.append(&g.node);
+    list.append(&h.node);
+
+    std.debug.print("LIST {d}\n", .{list.len()});
+    for (input) |t| {
+        const first = list.first.?;
+        const l: *L = @fieldParentPtr("node", first);
+        const start = findStart(l, t.source);
+        std.debug.print("DIR {any}\n", .{getCompassDirection(t.source, t.target)});
         const res = walkToTarget(start.?, t.source, t.target, list);
         try std.testing.expectEqual(t.res, res);
     }
